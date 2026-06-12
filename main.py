@@ -445,6 +445,16 @@ def _bot_thread(data, control):
         pass
     except Exception as e:
         print(f"Bot thread crashed: {e}")
+        traceback.print_exc()
+        # Surface the reason in a popup -- otherwise a connection failure
+        # just looks like the bot silently doing nothing.
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                0, f"VergoAI stopped:\n\n{e}"[:2000],
+                "VergoAI - Error", 0x10 | 0x1000)
+        except Exception:
+            pass
     finally:
         if control and not control.is_stopped():
             control.stop()
@@ -461,6 +471,18 @@ def _run_with_panel(data):
 # ─────────────────────────────────────────────────────────────────────────────
 # Entry point
 # ─────────────────────────────────────────────────────────────────────────────
+def _build_training_queue(brawlers, games_each):
+    """Queue entries for training mode: play each selected brawler for
+    `games_each` matches (win or lose), in order, regardless of trophies."""
+    return [{
+        "brawler": b, "trophies": 0, "wins": 0, "win_streak": 0,
+        "push_until": games_each, "type": "games", "games": 0,
+        "automatically_pick": True, "auto_detect_trophies": False,
+    } for b in brawlers]
+
+
+TRAINING_MODE = "--training" in sys.argv
+
 all_brawlers = get_brawler_list()
 if api_base_url != "localhost":
     update_missing_brawlers_info(all_brawlers)
@@ -470,8 +492,20 @@ if api_base_url != "localhost":
         print("New wall model found -- downloading...")
         get_latest_wall_model_file()
 
-app = App(login, SelectBrawler, _run_with_panel, all_brawlers, Hub)
-app.start(vergo_version, get_latest_version)
+if TRAINING_MODE:
+    print("=== VergoAI TRAINING MODE ===")
+    import learning
+    learning.engine.enabled = True
+    from gui.training_select import select_training
+    selection = select_training(all_brawlers)
+    if selection:
+        training_brawlers, games_each = selection
+        print(f"[training] {len(training_brawlers)} brawler(s), "
+              f"{games_each} game(s) each: {training_brawlers}")
+        _run_with_panel(_build_training_queue(training_brawlers, games_each))
+else:
+    app = App(login, SelectBrawler, _run_with_panel, all_brawlers, Hub)
+    app.start(vergo_version, get_latest_version)
 
 # Force process exit. Background threads from scrcpy / easyocr / cv2 may not
 # be daemonized, so without this the process lingers after the window closes

@@ -74,6 +74,11 @@ class Hub:
         self.root.resizable(False, False)
         self.root.configure(fg_color=theme.BG_BASE)
         theme.set_icon(self.root)
+        # Closing with the X must run the same careful teardown as the
+        # "Next ->" button. A plain destroy leaves CustomTkinter's appearance/
+        # scaling trackers pointing at dead widgets, which makes creating the
+        # NEXT window (brawler select) blow up -- so it never appeared.
+        self.root.protocol("WM_DELETE_WINDOW", self._on_next)
 
         for ev in ("<ButtonPress>", "<MouseWheel>", "<KeyPress>", "<FocusOut>"):
             self.root.bind_all(ev, self._tip_hide, add="+")

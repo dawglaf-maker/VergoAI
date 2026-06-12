@@ -6,6 +6,7 @@ platform-tools/
 *.log
 .claude/
 CLAUDE_BUILD_NOTES.md
+/training
 cfg/match_history.toml
 latest_brawler_data.json
 cfg/match_history.toml

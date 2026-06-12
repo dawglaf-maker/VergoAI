@@ -11,6 +11,7 @@ Architecture:
 """
 import atexit
 import math
+import os
 import threading
 import time
 from typing import List
@@ -35,6 +36,60 @@ directions_xy_deltas_dict = {
 BRAWL_STARS_PACKAGE = load_toml_as_dict("cfg/general_config.toml")["brawl_stars_package"]
 
 
+def _bluestacks_running():
+    """True/False if HD-Player.exe (the emulator window) is running,
+    None if we couldn't check."""
+    try:
+        import subprocess
+        out = subprocess.run(
+            ["tasklist", "/FI", "IMAGENAME eq HD-Player.exe"],
+            capture_output=True, text=True, timeout=5,
+        ).stdout
+        return "HD-Player.exe" in out
+    except Exception:
+        return None
+
+
+def _discover_adb_ports():
+    """Candidate ADB ports, most likely first.
+
+    BlueStacks 5 writes the port it is ACTUALLY listening on into
+    bluestacks.conf as status.adb_port -- and it is often NOT the default
+    5555 (e.g. 5556 when 5555 was taken). Reading the conf finds the real
+    port instead of guessing.
+    """
+    import re
+    ports = []
+
+    conf = r"C:\ProgramData\BlueStacks_nxt\bluestacks.conf"
+    try:
+        if os.path.exists(conf):
+            with open(conf, "r", encoding="utf-8", errors="ignore") as f:
+                text = f.read()
+            # status.adb_port first (runtime truth), then configured ports.
+            for pat in (r'status\.adb_port="(\d+)"', r'\.adb_port="(\d+)"'):
+                for m in re.findall(pat, text):
+                    p = int(m)
+                    if p not in ports:
+                        ports.append(p)
+            if ports:
+                print(f"BlueStacks conf reports ADB port(s): {ports}")
+    except Exception as e:
+        print(f"Could not read bluestacks.conf: {e}")
+
+    try:
+        p = int(load_toml_as_dict("cfg/general_config.toml")["emulator_port"])
+        if p not in ports:
+            ports.append(p)
+    except (KeyError, ValueError, TypeError):
+        pass
+
+    for p in [5555, 5556, 16384, 5635] + list(range(5565, 5756, 10)):
+        if p not in ports:
+            ports.append(p)
+    return ports
+
+
 class WindowController:
 
     def __init__(self):
@@ -48,20 +103,31 @@ class WindowController:
 
         print("Connecting to ADB...")
         try:
+            running = _bluestacks_running()
+            if running is False:
+                raise ConnectionError(
+                    "BlueStacks doesn't appear to be running (HD-Player.exe "
+                    "not found). Start BlueStacks and open Brawl Stars, then "
+                    "start the bot again.")
+
             device_list = adb.device_list()
             if not device_list:
-                # Best-effort: try common emulator ports.
-                ports = [load_toml_as_dict("cfg/general_config.toml")["emulator_port"],
-                         5555, 16384, 5635]
-                ports += list(range(5565, 5756, 10))
-                for port in ports:
+                for port in _discover_adb_ports():
                     try:
-                        adb.connect(f"127.0.0.1:{port}")
-                    except Exception:
-                        pass
-                device_list = adb.device_list()
+                        print(f"  trying 127.0.0.1:{port} ...")
+                        result = adb.connect(f"127.0.0.1:{port}", timeout=2.0)
+                        print(f"    -> {result}")
+                    except Exception as e:
+                        print(f"    -> no answer ({e})")
+                        continue
+                    device_list = adb.device_list()
+                    if device_list:
+                        break
             if not device_list:
-                raise ConnectionError("No ADB devices found.")
+                raise ConnectionError(
+                    "No ADB devices found. Make sure BlueStacks 5 is running "
+                    "AND that ADB is enabled: BlueStacks Settings > Advanced "
+                    "> Android Debug Bridge > ON (then restart BlueStacks).")
 
             self.device = device_list[0]
             print(f"Connected to device: {self.device.serial}")

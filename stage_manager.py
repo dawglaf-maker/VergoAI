@@ -6,6 +6,7 @@ import time
 import cv2
 import numpy as np
 
+import learning
 from state_finder import get_state, find_game_result
 from trophy_observer import TrophyObserver
 from utils import find_template_center, load_toml_as_dict, \
@@ -141,7 +142,8 @@ class StageManager:
 
         values = {
             "trophies": self.Trophy_observer.current_trophies,
-            "wins": self.Trophy_observer.current_wins
+            "wins": self.Trophy_observer.current_wins,
+            "games": int(self.brawlers_pick_data[0].get('games') or 0),
         }
 
         type_of_push = self.brawlers_pick_data[0]['type']
@@ -155,6 +157,8 @@ class StageManager:
             push_current_brawler_till = 300
         if push_current_brawler_till == "" and type_of_push == "trophies":
             push_current_brawler_till = 1000
+        if push_current_brawler_till == "" and type_of_push == "games":
+            push_current_brawler_till = 10
 
         if value >= push_current_brawler_till:
             if len(self.brawlers_pick_data) <= 1:
@@ -227,7 +231,9 @@ class StageManager:
                         print(f"[advance] '{next_brawler_name}' is prestige (menu shield) "
                               f"-- marking done, no lobby trip needed.")
                         entry = self.brawlers_pick_data[0]
-                        entry['push_until']           = 1
+                        # push_until=0 marks "done" for every push type
+                        # (trophies, wins AND games -- all counters are >= 0).
+                        entry['push_until']           = 0
                         entry['trophies']             = 1
                         entry['auto_detect_trophies'] = False
                         self.Trophy_observer.change_trophies(1)
@@ -323,10 +329,14 @@ class StageManager:
                 current_brawler = self.brawlers_pick_data[0]['brawler']
                 self.Trophy_observer.add_trophies(found_game_result, current_brawler)
                 self.Trophy_observer.add_win(found_game_result)
+                entry = self.brawlers_pick_data[0]
+                entry['games'] = int(entry.get('games') or 0) + 1
+                learning.engine.record_match(found_game_result)
                 self.time_since_last_stat_change = time.time()
                 values = {
                     "trophies": self.Trophy_observer.current_trophies,
-                    "wins": self.Trophy_observer.current_wins
+                    "wins": self.Trophy_observer.current_wins,
+                    "games": entry['games'],
                 }
                 type_to_push = self.brawlers_pick_data[0]['type']
                 if type_to_push not in values:
@@ -342,6 +352,8 @@ class StageManager:
                     push_current_brawler_till = 300
                 if push_current_brawler_till == "" and type_to_push == "trophies":
                     push_current_brawler_till = 1000
+                if push_current_brawler_till == "" and type_to_push == "games":
+                    push_current_brawler_till = 10
 
                 if value >= push_current_brawler_till:
                     if len(self.brawlers_pick_data) <= 1:

@@ -3,6 +3,7 @@ import random
 import time
 
 import cv2
+import learning
 from state_finder import get_state
 from detect import Detect
 from utils import load_toml_as_dict, count_hsv_pixels, load_brawlers_info
@@ -315,6 +316,10 @@ class Play(Movement):
         # Track enemy positions over time for crude "is enemy aiming at us" check
         self._enemy_history = []  # list of (timestamp, [(x,y), ...])
         self._enemy_history_window = 0.6  # seconds
+
+        # Self-learning: apply learned parameter overrides and let the
+        # engine adjust this instance as matches finish.
+        learning.engine.attach_play(self)
 
     # ------------------------------------------------------------------
     # Brawler ranges
@@ -787,6 +792,7 @@ class Play(Movement):
             self.last_bushes_data = bushes
             data['wall'] = walls
             data['bush'] = bushes
+            learning.engine.maybe_collect_tiles(frame, tile_data)
         elif self.keep_walls_in_memory:
             data['wall'] = self.last_walls_data
             data['bush'] = self.last_bushes_data
@@ -797,6 +803,8 @@ class Play(Movement):
         self.track_no_detections(data if data else {})
         if data and self.is_there_enemy(data.get('enemy')):
             self._record_enemies(data['enemy'])
+        if data:
+            learning.engine.maybe_collect_entities(frame, data)
 
         if data:
             self.time_since_player_last_found = time.time()
@@ -807,6 +815,11 @@ class Play(Movement):
         if not data:
             if current_time - self.time_since_player_last_found > 1.0:
                 self.window_controller.keys_up(list("wasd"))
+            # Mid-match frames where the player vanished are the most useful
+            # ones for retraining the detector -- stash them for labeling.
+            if (main.state == "match"
+                    and current_time - self.time_since_player_last_found > 2.5):
+                learning.engine.note_player_missing(frame)
             self.time_since_different_movement = time.time()
             if current_time - self.time_since_last_proceeding > self.no_detection_proceed_delay:
                 current_state = get_state(frame)
