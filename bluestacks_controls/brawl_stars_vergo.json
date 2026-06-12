@@ -1,0 +1,46 @@
+{
+    "_comment": "VergoAI pre-control profile for BlueStacks 5 + Brawl Stars. BlueStacks 5 already ships default controls for Space (attack), Shift (super), F (gadget), Q (play), WASD (move). This profile only documents what VergoAI uses -- you may need to add the four missing keys (H, Y, T, U) in BlueStacks Controls Editor.",
+    "_schema_version": "1.1",
+    "_target_app": "com.supercell.brawlstars",
+    "_required_resolution": "1920x1080",
+    "_generated_by": "VergoAI 1.0.0",
+
+    "bluestacks_defaults_used": {
+        "SPACE": "Attack (auto-aim)",
+        "SHIFT": "Super (auto-aim)",
+        "F": "Gadget",
+        "Q": "Play / Proceed / Claim regular drop",
+        "WASD": "Movement joystick"
+    },
+
+    "must_add_in_controls_editor": [
+        {
+            "key": "H",
+            "type": "tap",
+            "label": "Hypercharge",
+            "x": 1400, "y": 990,
+            "notes": "Tap the hypercharge button. BlueStacks default doesn't include it."
+        },
+        {
+            "key": "Y",
+            "type": "tap",
+            "label": "Reconnect (connection error)",
+            "x": 960, "y": 627,
+            "notes": "Centre of the 'Connection error' popup. Use BlueStacks Flight Mode to make the popup appear so you can see the exact button position before mapping."
+        },
+        {
+            "key": "T",
+            "type": "tap",
+            "label": "Chaos Drop",
+            "x": 960, "y": 540,
+            "notes": "Centre-screen tap to claim a Chaos drop variant."
+        },
+        {
+            "key": "U",
+            "type": "tap",
+            "label": "Nova Drop",
+            "x": 960, "y": 540,
+            "notes": "Centre-screen tap to claim a Nova drop variant."
+        }
+    ]
+}

@@ -1,0 +1,39 @@
+# Coords of btns the bot tries to press.
+[lobby]
+select_btn = [150, 950]
+trophy_observer = [20, 10, 650, 200]
+brawler_btn = [110, 490]
+
+[template_matching]
+powerpoint = [1000, 5, 80, 80]
+brawler_menu_task = [1450, 0, 80, 80]
+close_popup = [1740, 140, 140, 100]
+lobby_menu = [1790, 20, 75, 65]
+brawl_pass_house = [1750, 0, 169, 100]
+go_back_arrow = [0, 0, 175, 110]
+# Match-end screen buttons. PROCEED appears after a victory/defeat to
+# return to lobby; EXIT can also appear to leave the match. Search
+# regions are generous boxes around their typical screen positions.
+proceed_button = [700, 800, 600, 280]
+exit_button    = [40, 800, 320, 280]
+star_drop = [790, 350, 350, 350]
+trophies_screen = [1545, 915, 365, 168]
+# Whole-screen region so the "Connection error" toast is caught wherever
+# the game decides to render it (top, middle, bottom).
+connection_error = [0, 0, 1920, 1080]
+
+[pixel_counter_crop_area]
+super = [1460, 830, 1560, 930]
+gadget = [1580, 930, 1700, 1050]
+hypercharge = [1350, 940, 1450, 1050]
+
+# Per-brawler trophy OCR region in the LOBBY (just under the brawler name).
+# Broad search region where the trophy icon lives (one of:
+# trophy_icon_normal.png, trophy_icon_prestige.png in images/lobby/).
+# Format: [x, y, width, height] in 1920x1080 pixels.
+#
+# We template-match the icon inside this area, then OCR the digits
+# immediately to the right of the matched icon. This is position-
+# independent so it works for prestige brawlers too.
+[ocr]
+brawler_trophy_count = [600, 120, 400, 90]

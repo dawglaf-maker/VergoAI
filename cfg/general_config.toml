@@ -1,0 +1,11 @@
+super_debug = "no"
+cpu_or_gpu = "auto"
+max_ips = "auto"
+vergo_version = "1.0.0"
+long_press_star_drop = "yes"
+trophies_multiplier = 1
+run_for_minutes = 600
+current_emulator = "BlueStacks"
+emulator_port = 5555
+api_base_url = "default"
+brawl_stars_package = "com.supercell.brawlstars"
