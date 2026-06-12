@@ -248,6 +248,65 @@ def classify_star_drop(image):
     return None
 
 
+# ---------------------------------------------------------------------------
+# FREEPLAY GAMEMODE DETECTION
+# Freeplay ("NO TROPHIES" event) rotates gamemodes every so often. The mode
+# icons in images/freeplay/ (filename = gamemode name) are matched against
+# the screen at multiple scales so the trainer can adapt when the rotation
+# changes. Drop a new <mode>.png in that folder to support another mode --
+# no code change needed.
+# ---------------------------------------------------------------------------
+freeplay_icons_path = r"./images/freeplay/"
+_gamemode_icons = None
+
+
+def _load_gamemode_icons():
+    global _gamemode_icons
+    if _gamemode_icons is None:
+        _gamemode_icons = {}
+        try:
+            if os.path.isdir(freeplay_icons_path):
+                for fname in sorted(os.listdir(freeplay_icons_path)):
+                    if not fname.lower().endswith(".png"):
+                        continue
+                    icon = cv2.imread(os.path.join(freeplay_icons_path, fname))
+                    if icon is not None:
+                        _gamemode_icons[os.path.splitext(fname)[0]] = icon
+            print(f"[freeplay] gamemode icons loaded: {sorted(_gamemode_icons)}")
+        except Exception as e:
+            print(f"[freeplay] icon load failed: {e}")
+    return _gamemode_icons
+
+
+_GAMEMODE_SCALES = (0.4, 0.55, 0.7, 0.85, 1.0, 1.15, 1.3, 1.5, 1.75)
+
+
+def detect_gamemode_icon(screenshot_bgr, threshold=0.78):
+    """Best-matching gamemode icon anywhere on screen, or None.
+
+    Multi-scale because the icons appear at different sizes (lobby event
+    display vs. event-select card). Costs a few hundred ms -- callers
+    should throttle (the rotation only changes every ~15+ minutes)."""
+    icons = _load_gamemode_icons()
+    if not icons:
+        return None
+    h, w = screenshot_bgr.shape[:2]
+    best_mode, best_score = None, 0.0
+    for mode, icon in icons.items():
+        ih, iw = icon.shape[:2]
+        for scale in _GAMEMODE_SCALES:
+            tw, th = int(iw * scale), int(ih * scale)
+            if tw < 14 or th < 14 or tw >= w or th >= h:
+                continue
+            tmpl = cv2.resize(icon, (tw, th), interpolation=cv2.INTER_AREA)
+            score = cv2.matchTemplate(screenshot_bgr, tmpl,
+                                      cv2.TM_CCOEFF_NORMED).max()
+            if score > best_score:
+                best_mode, best_score = mode, score
+    print(f"[freeplay] best gamemode match: {best_mode} ({best_score:.2f})")
+    return best_mode if best_score >= threshold else None
+
+
 def get_state(screenshot):
     screenshot_bgr = cv2.cvtColor(screenshot, cv2.COLOR_RGB2BGR)
     if super_debug:

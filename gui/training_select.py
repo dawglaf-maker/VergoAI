@@ -67,9 +67,10 @@ def select_training(all_brawlers):
         text=("Pick the brawlers the bot may play while training (use low-"
               "trophy ones). It plays them in order, N games each, and "
               "learns from every match.\n"
-              "TIP: create a FRIENDLY BATTLE room in-game first (Menu > "
-              "Friendly Battle) -- the bot recognises it, plays vs bots, "
-              "and your trophies never move."),
+              "TIP: train without touching trophies -- either create a "
+              "FRIENDLY BATTLE room (Menu > Friendly Battle), or select the "
+              "NO-TROPHIES freeplay event; the bot detects its gamemode "
+              "even when the rotation changes."),
         font=(theme.FONT, S(12)), text_color=theme.TEXT_LOW,
         justify="center",
     ).pack(pady=(S(8), S(2)))

@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 import learning
-from state_finder import get_state, find_game_result
+from state_finder import get_state, find_game_result, detect_gamemode_icon
 from trophy_observer import TrophyObserver
 from utils import find_template_center, load_toml_as_dict, \
     save_brawler_data, ocr_trophy_count_from_region, classify_brawler_rank
@@ -45,6 +45,11 @@ class StageManager:
         # uses this to skip them so it keeps draining the current menu page
         # before scrolling.
         self.session_done_brawlers = set()
+        # Set by Main after construction -- lets the freeplay gamemode
+        # detector retune the Play instance when the rotation changes.
+        self.play_ref = None
+        self._last_gamemode_check = 0.0
+        self._detected_gamemode = None
         self.states = {
             'shop': self.quit_shop,
             'brawler_selection': self.quit_shop,
@@ -120,8 +125,34 @@ class StageManager:
         self.Trophy_observer.change_trophies(detected)
         save_brawler_data(self.brawlers_pick_data)
 
+    def _adapt_to_freeplay_gamemode(self):
+        """Trainer-only: freeplay rotates its gamemode every so often, so
+        before pressing PLAY check which mode icon is on screen and retune
+        the bot (wall detection only helps in Brawl Ball). Throttled to
+        once a minute -- the rotation changes far slower than that."""
+        if not learning.engine.enabled or self.play_ref is None:
+            return
+        if time.time() - self._last_gamemode_check < 60:
+            return
+        self._last_gamemode_check = time.time()
+        try:
+            screenshot = self.window_controller.screenshot()
+            bgr = cv2.cvtColor(screenshot, cv2.COLOR_RGB2BGR)
+            mode = detect_gamemode_icon(bgr)
+        except Exception as e:
+            print(f"[freeplay] gamemode detection failed: {e}")
+            return
+        if mode is None or mode == self._detected_gamemode:
+            return
+        self._detected_gamemode = mode
+        walls = mode in ("brawlball", "brawl_ball")
+        self.play_ref.should_detect_walls = walls
+        print(f"[freeplay] gamemode is now '{mode}' -- wall detection "
+              f"{'ON' if walls else 'OFF'}")
+
     def start_game(self):
         print("state is lobby, starting game")
+        self._adapt_to_freeplay_gamemode()
 
         # Auto trophy detect: if the brawler entry was created with
         # auto_detect_trophies=True (mass-select GUI flow), OCR the lobby's

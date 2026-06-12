@@ -274,6 +274,8 @@ def vergo_main(data, control: BotControl | None = None):
             self.Time_management = TimeManagement()
             self.lobby_automator = LobbyAutomation(self.window_controller)
             self.Stage_manager = StageManager(data, self.lobby_automator, self.window_controller)
+            # Freeplay gamemode detection (trainer) retunes Play on rotation.
+            self.Stage_manager.play_ref = self.Play
             if data[0]["automatically_pick"]:
                 print("Picking brawler automatically")
                 # Push-all entries can pick any non-prestige brawler --
