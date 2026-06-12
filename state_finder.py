@@ -136,6 +136,8 @@ def get_in_game_state(image):
         return "shop"
     if is_in_offer_popup(image):
         return "popup"
+    if is_in_friendly_room(image):
+        return "friendly_lobby"
     if is_in_lobby(image):
         return "lobby"
     if is_in_brawler_selection(image):
@@ -165,6 +167,19 @@ def is_in_offer_popup(image) -> bool:
 
 def is_in_lobby(image) -> bool:
     return is_template_in_region(image, states_path + 'lobby_menu.png', region_data["lobby_menu"])
+
+
+def is_in_friendly_room(image) -> bool:
+    """True when the FRIENDLY BATTLE team room is on screen. The room's
+    PLAY button sits in the same spot as the normal lobby's, so the bot
+    treats it as a lobby (press Q to start a no-trophy match vs bots).
+    Threshold is slightly relaxed because the reference template came from
+    a rescaled user screenshot rather than a native 1920x1080 frame."""
+    path = states_path + 'friendly_battle.png'
+    if not os.path.exists(path) or "friendly_battle" not in region_data:
+        return False
+    return is_template_in_region(image, path, region_data["friendly_battle"],
+                                 threshold=0.6)
 
 
 def is_in_end_of_a_match(image):

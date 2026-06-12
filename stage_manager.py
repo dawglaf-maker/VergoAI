@@ -54,6 +54,9 @@ class StageManager:
             'end_victory': self.end_game,
             'end_defeat': self.end_game,
             'lobby': self.start_game,
+            # Friendly Battle room: PLAY is in the same place, matches give
+            # no trophies -- the training ground of choice.
+            'friendly_lobby': self.start_game,
             'star_drop': self.click_star_drop,
             'trophy_reward': lambda: self.window_controller.press_key("Q"),
             # Match-end (PROCEED / EXIT visible). Pressing Q proceeds past
@@ -178,12 +181,13 @@ class StageManager:
                 print("Picking next automatically picked brawler")
                 screenshot = self.window_controller.screenshot()
                 current_state = get_state(screenshot)
-                if current_state != "lobby":
+                lobby_states = ("lobby", "friendly_lobby")
+                if current_state not in lobby_states:
                     print("Trying to reach the lobby to switch brawler")
 
                 max_attempts = 30
                 attempts = 0
-                while current_state != "lobby" and attempts < max_attempts:
+                while current_state not in lobby_states and attempts < max_attempts:
                     self.window_controller.press_key("Q")
                     print("Pressed Q to return to lobby")
                     time.sleep(1)

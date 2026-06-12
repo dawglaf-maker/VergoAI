@@ -55,8 +55,10 @@ class LearningEngine:
         self.dataset_dir = os.path.join(self.dir, "dataset")
 
         bot_cfg = load_toml_as_dict("cfg/bot_config.toml")
-        self.enabled = str(bot_cfg.get("learning_enabled", "yes")).lower() \
-            in ("yes", "true", "1")
+        # Learning is TRAINER-ONLY: the normal build plays with whatever was
+        # learned (learned params still apply) but never experiments or
+        # collects data. VergoAI-Training sets enabled = True at startup.
+        self.enabled = False
 
         self._play = None
         self.state = self._load_state()
@@ -119,13 +121,20 @@ class LearningEngine:
     # ══════════════════════════════════════════════════════════════════════
     def attach_play(self, play):
         """Called once by Play.__init__. Captures the config defaults for any
-        knob we haven't learned yet, then applies learned values."""
+        knob we haven't learned yet, then applies learned values.
+
+        Learned (adopted) values apply in EVERY build -- that's the payoff
+        of training. Experiments and data collection only happen when
+        `enabled` is True (the trainer build)."""
         self._play = play
-        if not self.enabled:
-            return
         for param in PARAM_SPECS:
             if param not in self.state["adopted"]:
                 self.state["adopted"][param] = self._read_from_play(play, param)
+        if not self.enabled:
+            self._apply(self.state["adopted"])   # no experiment trials
+            print(f"[learn] learned params applied (training off): "
+                  f"{self.state['adopted']}")
+            return
         self._apply(self._current_params())
         exp = self.state.get("experiment")
         if exp:
@@ -353,6 +362,71 @@ class LearningEngine:
             self._last_hard_save = now
         except Exception as e:
             print(f"[learn] hard-frame save failed: {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# "Extract AI" -- snapshot the current AI into Desktop\VergoAITraining\
+# ══════════════════════════════════════════════════════════════════════════
+def _desktop_dir():
+    """The user's real desktop folder (handles OneDrive-redirected desktops)."""
+    try:
+        import ctypes
+        buf = ctypes.create_unicode_buffer(260)
+        # CSIDL_DESKTOPDIRECTORY = 0x10 -- follows OneDrive redirection.
+        if ctypes.windll.shell32.SHGetFolderPathW(None, 0x10, None, 0, buf) == 0 \
+                and buf.value and os.path.isdir(buf.value):
+            return buf.value
+    except Exception:
+        pass
+    home = os.path.expanduser("~")
+    for cand in (os.path.join(home, "OneDrive", "Desktop"),
+                 os.path.join(home, "Desktop")):
+        if os.path.isdir(cand):
+            return cand
+    return home
+
+
+def export_ai_snapshot():
+    """Copy the current AI (ONNX models + learned params + collected
+    dataset) into Desktop\\VergoAITraining\\Training-N\\ where N counts up
+    on every export. Returns the created folder path."""
+    import shutil
+
+    base = os.path.join(_desktop_dir(), "VergoAITraining")
+    os.makedirs(base, exist_ok=True)
+    n = 1
+    while os.path.exists(os.path.join(base, f"Training-{n}")):
+        n += 1
+    target = os.path.join(base, f"Training-{n}")
+    os.makedirs(target)
+
+    # 1. The ONNX models the bot is currently playing with.
+    models_dir = os.path.abspath("models")
+    out_models = os.path.join(target, "models")
+    os.makedirs(out_models, exist_ok=True)
+    copied = 0
+    if os.path.isdir(models_dir):
+        for fname in os.listdir(models_dir):
+            if fname.lower().endswith(".onnx"):
+                shutil.copy2(os.path.join(models_dir, fname),
+                             os.path.join(out_models, fname))
+                copied += 1
+
+    # 2. What the tuner has learned so far.
+    training_dir = os.path.abspath("training")
+    for fname in ("learned_params.toml", "learning_state.json"):
+        src = os.path.join(training_dir, fname)
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(target, fname))
+
+    # 3. The collected dataset (frames + labels) for offline retraining.
+    dataset = os.path.join(training_dir, "dataset")
+    if os.path.isdir(dataset):
+        shutil.copytree(dataset, os.path.join(target, "dataset"),
+                        dirs_exist_ok=True)
+
+    print(f"[extract] AI snapshot saved to {target} ({copied} model(s))")
+    return target
 
 
 engine = LearningEngine()

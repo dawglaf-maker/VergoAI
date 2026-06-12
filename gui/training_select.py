@@ -66,8 +66,12 @@ def select_training(all_brawlers):
         root,
         text=("Pick the brawlers the bot may play while training (use low-"
               "trophy ones). It plays them in order, N games each, and "
-              "learns from every match."),
+              "learns from every match.\n"
+              "TIP: create a FRIENDLY BATTLE room in-game first (Menu > "
+              "Friendly Battle) -- the bot recognises it, plays vs bots, "
+              "and your trophies never move."),
         font=(theme.FONT, S(12)), text_color=theme.TEXT_LOW,
+        justify="center",
     ).pack(pady=(S(8), S(2)))
 
     # ── Brawler grid ──────────────────────────────────────────────────────
@@ -142,6 +146,47 @@ def select_training(all_brawlers):
     ctk.CTkButton(bottom, text="Clear", command=_clear,
                   font=(theme.FONT, S(12), "bold"), width=S(90),
                   **theme.btn(h=S(38))).pack(side="left", padx=S(4))
+
+    # ── Extract AI: snapshot models + learned data to the desktop ────────
+    extract_state = {"running": False, "done": None, "error": None}
+
+    def _extract_worker():
+        try:
+            from learning import export_ai_snapshot
+            extract_state["done"] = export_ai_snapshot()
+        except Exception as e:
+            extract_state["error"] = str(e)
+        finally:
+            extract_state["running"] = False
+
+    def _poll_extract():
+        if extract_state["running"]:
+            root.after(300, _poll_extract)
+            return
+        if extract_state["error"]:
+            feedback.configure(text=f"Extract failed: {extract_state['error']}",
+                               text_color=theme.DANGER)
+        elif extract_state["done"]:
+            folder = os.path.basename(extract_state["done"])
+            feedback.configure(text=f"AI saved to Desktop\\VergoAITraining\\{folder}",
+                               text_color=theme.SUCCESS)
+        extract_btn.configure(state="normal", text="📦  Extract AI")
+
+    def _extract():
+        if extract_state["running"]:
+            return
+        extract_state.update(running=True, done=None, error=None)
+        extract_btn.configure(state="disabled", text="Extracting…")
+        feedback.configure(text="Extracting AI snapshot…",
+                           text_color=theme.TEXT_LOW)
+        import threading
+        threading.Thread(target=_extract_worker, daemon=True).start()
+        root.after(300, _poll_extract)
+
+    extract_btn = ctk.CTkButton(bottom, text="📦  Extract AI", command=_extract,
+                                font=(theme.FONT, S(12), "bold"), width=S(130),
+                                **theme.btn(h=S(38)))
+    extract_btn.pack(side="left", padx=(S(16), S(4)))
 
     ctk.CTkLabel(bottom, text="Games with each brawler:",
                  font=(theme.FONT, S(13)),

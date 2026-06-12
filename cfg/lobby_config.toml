@@ -5,6 +5,9 @@ trophy_observer = [20, 10, 650, 200]
 brawler_btn = [110, 490]
 
 [template_matching]
+# "FRIENDLY BATTLE" room title -- generous box around its position so the
+# friendly room is recognised as a lobby-equivalent state (press PLAY).
+friendly_battle = [640, 130, 640, 180]
 powerpoint = [1000, 5, 80, 80]
 brawler_menu_task = [1450, 0, 80, 80]
 close_popup = [1740, 140, 140, 100]
